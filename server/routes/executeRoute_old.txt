@@ -1,0 +1,98 @@
+const express = require("express");
+const router = express.Router();
+const fs = require("fs");
+const path = require("path");
+const { spawn } = require("child_process");
+const { exec } = require("child_process");
+
+const tempDir = path.join(__dirname, "../temp");
+if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+router.post("/execute", async (req, res) => {
+  const { code, language, input } = req.body;
+  const id = `code_${Date.now()}`;
+  const extMap = {
+    c: "c",
+    cpp: "cpp",
+    python: "py",
+    java: "java",
+    javascript: "js",
+  };
+
+  const ext = extMap[language];
+  if (!ext) return res.status(400).json({ output: "Unsupported language" });
+
+  const filePath = path.join(tempDir, `${id}.${ext}`);
+  const inputPath = path.join(tempDir, `${id}_input.txt`);
+  const filenameWithoutExt = path.join(tempDir, id);
+
+  fs.writeFileSync(filePath, code);
+  if (input) fs.writeFileSync(inputPath, input);
+
+  let command;
+  switch (language) {
+    case "c":
+      command = `gcc "${filePath}" -o "${filenameWithoutExt}.exe" && "${filenameWithoutExt}.exe"`;
+      if (input) command += ` < "${inputPath}"`;
+      break;
+    case "cpp":
+      command = `g++ "${filePath}" -o "${filenameWithoutExt}.exe" && "${filenameWithoutExt}.exe"`;
+      if (input) command += ` < "${inputPath}"`;
+      break;
+    case "python": {
+  const python = spawn("python", [filePath]);
+
+  if (input) {
+    python.stdin.write(input);
+    python.stdin.end();
+  }
+
+  let output = "";
+  let error = "";
+
+  python.stdout.on("data", (data) => {
+    output += data.toString();
+  });
+
+  python.stderr.on("data", (data) => {
+    error += data.toString();
+  });
+
+  python.on("close", (code) => {
+    if (code !== 0 || error) {
+      return res.json({ output: error || "Execution error." });
+    }
+    return res.json({ output: output.trim() });
+  });
+
+  return; // ⛔ Important to prevent calling exec() below
+}
+    case "java": {
+  // Extract class name from code using regex
+  const match = code.match(/public\s+class\s+(\w+)/);
+  const javaClass = match ? match[1] : `Main${Date.now()}`;
+  const javaFile = `${javaClass}.java`;
+  const newPath = path.join(tempDir, javaFile);
+
+  // Write file with correct name
+  fs.writeFileSync(newPath, code);
+
+  command = `javac "${newPath}" && java -cp "${tempDir}" ${javaClass}`;
+  if (input) command += ` < "${inputPath}"`;
+  break;
+}
+    case "javascript":
+      command = `node "${filePath}"`;
+      if (input) command += ` < "${inputPath}"`;
+      break;
+  }
+
+  exec(command, { cwd: tempDir }, (err, stdout, stderr) => {
+    if (err) {
+      return res.json({ output: stderr || "Execution error." });
+    }
+    res.json({ output: stdout });
+  });
+});
+
+module.exports = router;

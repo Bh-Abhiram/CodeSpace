@@ -1,0 +1,34 @@
+# === FRONTEND: code-space ===
+code-space/node_modules/
+code-space/build/
+code-space/.env
+code-space/.env.*          # Ignore all environment variants
+code-space/npm-debug.log*
+code-space/yarn-debug.log*
+code-space/yarn-error.log*
+code-space/coverage/
+
+# === BACKEND: server ===
+server/node_modules/
+server/dist/
+server/.env
+server/.env.*              # Ignore all environment variants
+server/npm-debug.log*
+server/yarn-debug.log*
+server/yarn-error.log*
+server/coverage/
+server/uploads/            # Ignore uploaded files (optional, if using uploads folder)
+
+# === GLOBAL ===
+# Logs
+*.log
+
+# OS / System files
+.DS_Store
+Thumbs.db
+
+# IDE / Editor folders
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
